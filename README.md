@@ -139,3 +139,7 @@ A: 编辑 `webapp/server.py` 里的 `find_free_port(start=8001, end=8020)`。
 ## License
 
 MIT
+
+## 关于作者
+
+由李建鹏设计开发 · 作品集主页：https://lijianpeng-arch.github.io/
