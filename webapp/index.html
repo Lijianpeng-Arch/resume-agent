@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI简历优化Agent · 本地网站版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #60a5fa;
+    --text-main: #1e293b;
+    --text-sub: #64748b;
+    --card-bg: rgba(255,255,255,0.55);
+    --card-border: rgba(255,255,255,0.7);
+  }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    min-height: 100vh;
+    color: var(--text-main);
+    background: linear-gradient(135deg, #e8f1fd 0%, #dbeafe 45%, #cfe4ff 100%);
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* 装饰光斑 */
+  .blob {
+    position: fixed; border-radius: 50%; filter: blur(90px); z-index: 0; pointer-events: none;
+  }
+  .blob1 { width: 420px; height: 420px; background: rgba(59,130,246,0.28); top: -120px; left: -100px; }
+  .blob2 { width: 360px; height: 360px; background: rgba(147,197,253,0.35); bottom: -100px; right: -80px; }
+  .blob3 { width: 240px; height: 240px; background: rgba(96,165,250,0.22); top: 40%; left: 60%; }
+
+  .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; position: relative; z-index: 1; }
+
+  /* 顶栏 */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 16px 24px; box-shadow: 0 8px 32px rgba(37,99,235,0.10);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+  }
+  .logo h1 { font-size: 20px; font-weight: 700; }
+  .logo p { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .badge-online { background: rgba(16,185,129,0.15); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
+  .badge-online .dot { background: #10b981; }
+  .badge-offline { background: rgba(100,116,139,0.12); color: #64748b; border: 1px solid rgba(100,116,139,0.25); }
+  .badge-offline .dot { background: #94a3b8; }
+  .btn-gear {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--card-border);
+    background: rgba(255,255,255,0.6); cursor: pointer; font-size: 18px;
+    transition: all .2s;
+  }
+  .btn-gear:hover { background: #fff; transform: rotate(30deg); }
+
+  /* 卡片 */
+  .card {
+    background: var(--card-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 24px; margin-top: 22px; box-shadow: 0 8px 32px rgba(37,99,235,0.08);
+  }
+  .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  /* 输入区 */
+  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .input-grid { grid-template-columns: 1fr; } }
+  .field label { font-size: 13px; font-weight: 600; color: var(--text-sub); display: block; margin-bottom: 8px; }
+  textarea {
+    width: 100%; min-height: 220px; resize: vertical;
+    border: 1px solid rgba(148,163,184,0.35); border-radius: 14px;
+    background: rgba(255,255,255,0.65); padding: 14px; font-size: 13px; line-height: 1.7;
+    font-family: inherit; outline: none; transition: all .2s;
+  }
+  textarea:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); background: #fff; }
+  .actions { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .btn {
+    border: none; border-radius: 12px; padding: 12px 26px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all .2s; font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,0.45); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: rgba(255,255,255,0.65); color: var(--primary); border: 1px solid rgba(59,130,246,0.35); }
+  .btn-ghost:hover { background: #eff6ff; }
+  .btn-sm { padding: 8px 16px; font-size: 13px; border-radius: 10px; }
+
+  /* loading */
+  .loading { display: none; align-items: flex-start; gap: 10px; color: var(--primary); font-size: 14px; margin-top: 14px; }
+  .loading.show { display: flex; }
+  .loading-main { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .loading-steps { margin-top: 10px; margin-left: 30px; display: flex; flex-direction: column; gap: 6px; }
+  .lstep { font-size: 12.5px; color: #9aa8c0; transition: color .3s; }
+  .lstep.active { color: var(--primary); font-weight: 600; }
+  .lstep.done { color: #16a34a; }
+  .lstep.done::before { content: "✓ "; }
+  .lstep.active::before { content: "▸ "; }
+  .lstep::before { content: "· "; }
+  .spinner {
+    width: 20px; height: 20px; border: 3px solid rgba(59,130,246,0.2); border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 结果区 */
+  #resultArea { display: none; }
+  #resultArea.show { display: block; }
+  .notice {
+    display: none; margin-top: 14px; padding: 12px 16px; border-radius: 12px; font-size: 13px;
+    background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.3);
+  }
+  .notice.show { display: block; }
+
+  /* Tab */
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid rgba(148,163,184,0.2); }
+  .tab {
+    padding: 10px 22px; font-size: 14px; font-weight: 600; color: var(--text-sub);
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .2s;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* 分数环 */
+  .score-row { display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
+  .score-ring-wrap { position: relative; width: 180px; height: 180px; flex-shrink: 0; margin: 0 auto; }
+  .score-ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(148,163,184,0.2); stroke-width: 14; }
+  .ring-val { fill: none; stroke: url(#ringGrad); stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1.2s ease; }
+  .score-num {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .score-num .num { font-size: 46px; font-weight: 800; background: linear-gradient(135deg,#2563eb,#60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .score-num .lvl { font-size: 13px; color: var(--text-sub); margin-top: 4px; font-weight: 600; }
+  .score-meta { flex: 1; min-width: 240px; }
+  .score-meta .meta-item { font-size: 14px; margin-bottom: 8px; color: var(--text-sub); }
+  .score-meta .meta-item b { color: var(--text-main); }
+  .highlight-list { margin-top: 10px; }
+  .highlight-list li { font-size: 13px; color: var(--text-sub); margin: 6px 0 6px 18px; line-height: 1.6; }
+
+  /* 维度条形图（纯CSS） */
+  .dim-section { margin-top: 28px; }
+  .dim-section h3, .sub-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+  .dim-row { margin-bottom: 14px; }
+  .dim-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .dim-head .dim-score { color: var(--primary); font-weight: 700; }
+  .dim-bar { height: 12px; border-radius: 999px; background: rgba(148,163,184,0.18); overflow: hidden; }
+  .dim-fill {
+    height: 100%; border-radius: 999px; width: 0;
+    background: linear-gradient(90deg, #60a5fa, #2563eb);
+    transition: width 1s ease;
+  }
+  .dim-detail { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+  /* 标签云 */
+  .tag-section { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .tag-section { grid-template-columns: 1fr; } }
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .tag-ok { background: rgba(16,185,129,0.12); color: #047857; border: 1px solid rgba(16,185,129,0.28); }
+  .tag-miss { background: rgba(239,68,68,0.10); color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
+  .tag-empty { font-size: 13px; color: var(--text-sub); }
+
+  /* 建议列表 */
+  .sug-section { margin-top: 26px; }
+  .sug-item {
+    display: flex; gap: 14px; padding: 16px; border-radius: 14px; margin-bottom: 12px;
+    background: rgba(255,255,255,0.55); border: 1px solid rgba(226,232,240,0.8);
+  }
+  .sug-num {
+    width: 30px; height: 30px; flex-shrink: 0; border-radius: 10px;
+    background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+  }
+  .sug-body { flex: 1; }
+  .sug-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .sug-cat { font-size: 14px; font-weight: 700; }
+  .sug-pri { font-size: 11px; padding: 2px 10px; border-radius: 999px; font-weight: 700; }
+  .pri-高 { background: rgba(239,68,68,0.12); color: #dc2626; }
+  .pri-中 { background: rgba(245,158,11,0.14); color: #d97706; }
+  .pri-低 { background: rgba(100,116,139,0.12); color: #64748b; }
+  .sug-text { font-size: 13px; color: var(--text-sub); line-height: 1.7; margin-top: 4px; }
+  .sug-text b { color: var(--text-main); }
+
+  /* 优化后简历 */
+  .resume-view {
+    background: rgba(255,255,255,0.7); border: 1px solid rgba(226,232,240,0.9);
+    border-radius: 14px; padding: 22px; font-size: 13px; line-height: 1.9;
+    white-space: pre-wrap; word-break: break-word; font-family: "SF Mono", Consolas, "Courier New", monospace;
+    max-height: 640px; overflow-y: auto;
+  }
+
+  .result-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .err-box {
+    display: none; margin-top: 14px; padding: 14px 16px; border-radius: 12px; font-size: 13px;
+    background: rgba(239,68,68,0.10); color: #b91c1c; border: 1px solid rgba(239,68,68,0.3);
+  }
+  .err-box.show { display: block; }
+
+  /* 设置弹窗 */
+  .modal-mask {
+    display: none; position: fixed; inset: 0; background: rgba(30,41,59,0.35);
+    backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(24px);
+    border-radius: 20px; padding: 28px; box-shadow: 0 20px 60px rgba(30,41,59,0.25);
+    border: 1px solid rgba(255,255,255,0.8);
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 4px; }
+  .modal .tip { font-size: 12px; color: var(--text-sub); margin-bottom: 18px; line-height: 1.6; }
+  .modal .tip b { color: var(--primary); }
+  .modal label { font-size: 13px; font-weight: 600; display: block; margin: 14px 0 6px; }
+  .modal input, .modal select {
+    width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.4);
+    background: rgba(255,255,255,0.85); font-size: 14px; outline: none; font-family: inherit;
+  }
+  .modal input:focus, .modal select:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  .modal-btns { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .detect-result { display: none; margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(37,99,235,0.06); border: 1px solid rgba(59,130,246,0.25); }
+  .detect-result.show { display: block; }
+  .detect-provider { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+  .test-result { display: none; margin-top: 12px; font-size: 13px; padding: 10px 14px; border-radius: 10px; }
+  .test-result.show { display: block; }
+  .test-ok { background: rgba(16,185,129,0.12); color: #047857; }
+  .test-fail { background: rgba(239,68,68,0.10); color: #b91c1c; }
+  details { margin-top: 16px; }
+  summary { font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; }
+  .modal-close-row { display: flex; justify-content: space-between; margin-top: 22px; }
+  .link-clear { background: none; border: none; color: #dc2626; font-size: 13px; cursor: pointer; text-decoration: underline; font-family: inherit; }
+  .cfg-status { font-size: 12px; color: var(--text-sub); margin-top: 10px; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: rgba(30,41,59,0.92); color: #fff; padding: 12px 24px; border-radius: 999px;
+    font-size: 14px; z-index: 200; transition: transform .3s ease; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+
+<div class="container">
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">📄</div>
+      <div>
+        <h1>AI简历优化Agent</h1>
+        <p>JD-简历匹配分析 · 智能优化建议 · 本地网站版</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="modeBadge" class="badge badge-offline"><span class="dot"></span>加载中…</span>
+      <button class="btn-gear" id="btnSettings" title="设置">⚙️</button>
+    </div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="card">
+    <h2>📝 输入信息</h2>
+    <div class="input-grid">
+      <div class="field">
+        <label>职位描述（JD）</label>
+        <textarea id="jdInput" placeholder="粘贴目标岗位的职位描述全文…"></textarea>
+      </div>
+      <div class="field">
+        <label>简历内容</label>
+        <textarea id="resumeInput" placeholder="粘贴你的简历全文…"></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="btnSample">📋 填入示例数据</button>
+      <button class="btn btn-primary" id="btnAnalyze">🚀 开始分析</button>
+    </div>
+    <div class="loading" id="loading">
+      <div class="loading-main"><div class="spinner"></div><span id="loadingText">AI 正在分析中，请稍候…</span></div>
+      <div class="loading-steps" id="loadingSteps">
+        <div class="lstep" data-t="0">阅读职位描述，提取关键要求</div>
+        <div class="lstep" data-t="5">比对简历与 JD 的技能匹配度</div>
+        <div class="lstep" data-t="15">生成五维评分与优化建议</div>
+        <div class="lstep" data-t="30">撰写优化后的完整简历</div>
+      </div>
+    </div>
+    <div class="err-box" id="errBox"></div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="card" id="resultArea">
+    <div class="notice" id="noteBox"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="report">📊 分析报告</button>
+      <button class="tab" data-tab="resume">📄 优化后简历</button>
+    </div>
+
+    <!-- 分析报告 Tab -->
+    <div class="tab-pane active" id="pane-report">
+      <div class="score-row">
+        <div class="score-ring-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60a5fa"/>
+                <stop offset="100%" stop-color="#1d4ed8"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="90" cy="90" r="76"/>
+            <circle class="ring-val" id="ringVal" cx="90" cy="90" r="76"
+              stroke-dasharray="477.5" stroke-dashoffset="477.5"/>
+          </svg>
+          <div class="score-num">
+            <div class="num" id="scoreNum">0</div>
+            <div class="lvl" id="scoreLvl">—</div>
+          </div>
+        </div>
+        <div class="score-meta">
+          <div class="meta-item">🎯 目标职位：<b id="metaJob">—</b></div>
+          <div class="meta-item">👤 候选人：<b id="metaName">—</b></div>
+          <div class="meta-item">⚙️ 分析引擎：<b id="metaSource">—</b></div>
+          <ul class="highlight-list" id="highlightList"></ul>
+        </div>
+      </div>
+
+      <div class="dim-section">
+        <h3>📈 各维度得分</h3>
+        <div id="dimList"></div>
+      </div>
+
+      <div class="tag-section">
+        <div>
+          <h3 class="sub-title">✅ 已匹配技能</h3>
+          <div class="tag-cloud" id="matchedTags"></div>
+        </div>
+        <div>
+          <h3 class="sub-title">❌ 缺失技能（JD要求但简历未体现）</h3>
+          <div class="tag-cloud" id="missingTags"></div>
+        </div>
+      </div>
+
+      <div class="sug-section">
+        <h3 class="sub-title">💡 优化建议</h3>
+        <div id="sugList"></div>
+      </div>
+    </div>
+
+    <!-- 优化后简历 Tab -->
+    <div class="tab-pane" id="pane-resume">
+      <div class="resume-view" id="resumeView"></div>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn btn-primary btn-sm" id="btnCopy">📋 复制结果</button>
+      <button class="btn btn-ghost btn-sm" id="btnDownload">⬇️ 下载为 .md</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>⚙️ LLM 接入设置</h3>
+    <p class="tip">填入任意 OpenAI 兼容厂商的 API Key，系统将<b>自动识别厂商</b>并拉取模型列表。<br>💡 <b>不配置 API Key 也可以使用</b>，将使用内置规则引擎（离线模式）。</p>
+
+    <label>API Key</label>
+    <input type="password" id="cfgKey" placeholder="sk-..." autocomplete="off">
+
+    <div class="modal-btns">
+      <button class="btn btn-primary btn-sm" id="btnDetect">🔍 自动识别并保存</button>
+      <button class="btn btn-ghost btn-sm" id="btnTest">🔌 测试连接</button>
+    </div>
+
+    <div class="detect-result" id="detectResult">
+      <div class="detect-provider" id="detectProvider"></div>
+      <label>选择模型</label>
+      <select id="modelSelect"></select>
+    </div>
+
+    <div class="test-result" id="testResult"></div>
+
+    <details>
+      <summary>🔧 高级设置（自定义接口地址 / 手动填模型名）</summary>
+      <label>接口地址（OpenAI 兼容 base_url）</label>
+      <input type="text" id="cfgBaseUrl" placeholder="https://api.example.com/v1">
+      <label>模型名称</label>
+      <input type="text" id="cfgModel" placeholder="如 deepseek-chat">
+      <div class="modal-btns">
+        <button class="btn btn-ghost btn-sm" id="btnSaveManual">💾 手动保存配置</button>
+      </div>
+    </details>
+
+    <div class="cfg-status" id="cfgStatus"></div>
+
+    <div class="modal-close-row">
+      <button class="link-clear" id="btnClear">清除配置（恢复离线模式）</button>
+      <button class="btn btn-ghost btn-sm" id="btnCloseModal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ================= 示例数据 =================
+var SAMPLE_JD = `高级Python后端工程师
+公司名称：某知名互联网公司
+工作地点：北京/上海
+薪资：30-50K
+
+岗位职责：
+1. 负责公司核心产品的后端架构设计与开发
+2. 设计和优化高并发、高可用的分布式系统
+3. 参与技术方案评审，推动技术选型和架构演进
+4. 指导初中级工程师，进行Code Review
+
+任职要求：
+1. 本科及以上学历，计算机相关专业优先
+2. 5年以上Python后端开发经验
+3. 精通Django/Flask/FastAPI等Web框架
+4. 熟悉MySQL、PostgreSQL等关系型数据库
+5. 精通Redis、消息队列（Kafka/RabbitMQ）
+6. 熟悉Docker、Kubernetes容器化技术
+7. 有微服务架构设计和实践经验
+8. 熟悉CI/CD流程，了解DevOps理念
+9. 良好的系统设计能力和问题排查能力
+10. 有大数据处理经验（Spark/Hadoop）优先`;
+
+var SAMPLE_RESUME = `张三
+手机：138-0000-0000
+邮箱：zhangsan@email.com
+求职意向：Python后端工程师
+
+教育背景：
+浙江大学 计算机科学与技术 本科 2017-2021
+
+工作经历：
+杭州某科技公司 | Python开发工程师 | 2021.07-至今
+- 参与公司电商平台后端开发，使用Django框架
+- 负责用户模块、订单模块的接口开发和维护
+- 使用MySQL数据库，编写SQL查询和存储过程
+- 使用Redis做缓存，优化接口响应时间
+- 参与微服务拆分项目，使用Docker部署服务
+
+项目经历：
+1. 电商订单系统重构
+   - 将原有单体架构拆分为微服务
+   - 使用Docker容器化部署
+   - 优化数据库查询，接口响应时间提升40%
+
+2. 用户行为分析平台
+   - 使用Flask开发后端API
+   - 数据存储在PostgreSQL
+   - 使用Celery处理异步任务
+
+技能：
+Python, Django, Flask, MySQL, Redis, Docker, Linux, Git, RESTful API`;
+
+// ================= 工具 =================
+function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function toast(msg) {
+  var t = $("toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+function api(path, method, body) {
+  var opt = { method: method || "GET", headers: {"Content-Type": "application/json"} };
+  if (body) opt.body = JSON.stringify(body);
+  return fetch(path, opt).then(function(r){ return r.json(); });
+}
+
+var lastResult = null;
+
+// ================= 模式徽章 =================
+function refreshStatus() {
+  api("/api/status").then(function(d){
+    var b = $("modeBadge");
+    if (d.mode === "llm") {
+      b.className = "badge badge-online";
+      b.innerHTML = '<span class="dot"></span>AI在线模式 · ' + esc(d.provider || "LLM");
+    } else {
+      b.className = "badge badge-offline";
+      b.innerHTML = '<span class="dot"></span>离线规则引擎模式';
+    }
+  }).catch(function(){});
+}
+
+// ================= 主流程 =================
+$("btnSample").addEventListener("click", function(){
+  $("jdInput").value = SAMPLE_JD;
+  $("resumeInput").value = SAMPLE_RESUME;
+  toast("已填入示例数据（Python后端工程师）");
+});
+
+$("btnAnalyze").addEventListener("click", function(){
+  var jd = $("jdInput").value.trim();
+  var resume = $("resumeInput").value.trim();
+  var errBox = $("errBox");
+  errBox.classList.remove("show");
+  if (!jd) { errBox.textContent = "请先填写职位描述（JD）"; errBox.classList.add("show"); return; }
+  if (!resume) { errBox.textContent = "请先填写简历内容"; errBox.classList.add("show"); return; }
+
+  $("btnAnalyze").disabled = true;
+  $("loading").classList.add("show");
+  var waitStart = Date.now();
+  var steps = document.querySelectorAll("#loadingSteps .lstep");
+  steps.forEach(function(st){ st.classList.remove("active","done"); });
+  function tickLoading(){
+    var s = Math.floor((Date.now() - waitStart) / 1000);
+    $("loadingText").textContent = "AI 正在深度分析… 已等待 " + s + "s（通常需要 10~60 秒，请耐心等待）";
+    var current = -1;
+    steps.forEach(function(st, i){ if (s >= parseInt(st.getAttribute("data-t"))) current = i; });
+    steps.forEach(function(st, i){
+      st.classList.toggle("done", i < current);
+      st.classList.toggle("active", i === current);
+    });
+  }
+  tickLoading();
+  var waitTimer = setInterval(tickLoading, 1000);
+
+  api("/api/generate", "POST", { jd_text: jd, resume_text: resume }).then(function(d){
+    clearInterval(waitTimer);
+    $("btnAnalyze").disabled = false;
+    $("loading").classList.remove("show");
+    if (!d.ok) {
+      errBox.textContent = "❌ " + (d.error || "分析失败");
+      errBox.classList.add("show");
+      return;
+    }
+    lastResult = d;
+    renderResult(d);
+  }).catch(function(e){
+    clearInterval(waitTimer);
+    $("btnAnalyze").disabled = false;
+    $("loading").classList.remove("show");
+    errBox.textContent = "❌ 网络请求失败：" + e;
+    errBox.classList.add("show");
+  });
+});
+
+// ================= 渲染结果 =================
+function renderResult(d) {
+  $("resultArea").classList.add("show");
+
+  // 降级提示
+  var nb = $("noteBox");
+  if (d.note) { nb.textContent = "⚠️ " + d.note; nb.classList.add("show"); }
+  else { nb.classList.remove("show"); }
+
+  // 分数环
+  var score = d.match_score || 0;
+  var C = 2 * Math.PI * 76;
+  $("ringVal").style.strokeDashoffset = C;
+  setTimeout(function(){ $("ringVal").style.strokeDashoffset = C * (1 - score / 100); }, 50);
+  // 数字滚动
+  var numEl = $("scoreNum"), cur = 0;
+  var timer = setInterval(function(){
+    cur += Math.max(1, Math.round(score / 30));
+    if (cur >= score) { cur = score; clearInterval(timer); }
+    numEl.textContent = cur;
+  }, 35);
+  $("scoreLvl").textContent = d.score_level || "—";
+
+  $("metaJob").textContent = d.job_title || "—";
+  $("metaName").textContent = d.candidate_name || "—";
+  $("metaSource").textContent = d.source === "llm" ? "AI大模型（LLM）" : "离线规则引擎";
+
+  // 摘要
+  var hl = $("highlightList"); hl.innerHTML = "";
+  (d.highlights || []).forEach(function(h){
+    var li = document.createElement("li"); li.textContent = h; hl.appendChild(li);
+  });
+
+  // 维度条形图
+  var dl = $("dimList"); dl.innerHTML = "";
+  (d.dimensions || []).forEach(function(dim){
+    var pct = Math.min(100, Math.round(dim.score / (dim.max || 1) * 100));
+    var row = document.createElement("div");
+    row.className = "dim-row";
+    row.innerHTML =
+      '<div class="dim-head"><span>' + esc(dim.name) + '</span>' +
+      '<span class="dim-score">' + dim.score + ' / ' + dim.max + '</span></div>' +
+      '<div class="dim-bar"><div class="dim-fill" data-w="' + pct + '"></div></div>' +
+      (dim.detail ? '<div class="dim-detail">' + esc(dim.detail) + '</div>' : '');
+    dl.appendChild(row);
+  });
+  setTimeout(function(){
+    var fills = dl.querySelectorAll(".dim-fill");
+    for (var i = 0; i < fills.length; i++) fills[i].style.width = fills[i].getAttribute("data-w") + "%";
+  }, 80);
+
+  // 标签云
+  renderTags($("matchedTags"), d.matched_skills, "tag-ok", "暂无匹配技能");
+  renderTags($("missingTags"), d.missing_skills, "tag-miss", "🎉 无明显缺失技能");
+
+  // 建议
+  var sl = $("sugList"); sl.innerHTML = "";
+  (d.suggestions || []).forEach(function(s, i){
+    var item = document.createElement("div");
+    item.className = "sug-item";
+    var html = '<div class="sug-num">' + (i + 1) + '</div><div class="sug-body">' +
+      '<div class="sug-head"><span class="sug-cat">' + esc(s.category) + '</span>' +
+      '<span class="sug-pri pri-' + esc(s.priority) + '">' + esc(s.priority) + '优先级</span></div>';
+    if (s.issue)  html += '<div class="sug-text"><b>问题：</b>' + esc(s.issue) + '</div>';
+    if (s.action) html += '<div class="sug-text"><b>建议：</b>' + esc(s.action) + '</div>';
+    if (s.impact) html += '<div class="sug-text"><b>效果：</b>' + esc(s.impact) + '</div>';
+    html += '</div>';
+    item.innerHTML = html;
+    sl.appendChild(item);
+  });
+
+  // 优化后简历
+  $("resumeView").textContent = d.optimized_resume || "（无内容）";
+
+  $("resultArea").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderTags(container, list, cls, emptyText) {
+  container.innerHTML = "";
+  if (!list || !list.length) {
+    container.innerHTML = '<span class="tag-empty">' + esc(emptyText) + '</span>';
+    return;
+  }
+  list.forEach(function(s){
+    var t = document.createElement("span");
+    t.className = "tag " + cls; t.textContent = s;
+    container.appendChild(t);
+  });
+}
+
+// Tab 切换
+var tabs = document.querySelectorAll(".tab");
+for (var i = 0; i < tabs.length; i++) {
+  tabs[i].addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(t){ t.classList.remove("active"); });
+    document.querySelectorAll(".tab-pane").forEach(function(p){ p.classList.remove("active"); });
+    this.classList.add("active");
+    $("pane-" + this.getAttribute("data-tab")).classList.add("active");
+  });
+}
+
+// ================= 复制 / 下载 =================
+function buildMarkdown() {
+  if (!lastResult) return "";
+  var d = lastResult, L = [];
+  L.push("# AI简历优化报告");
+  L.push("");
+  L.push("- 目标职位：" + (d.job_title || "—"));
+  L.push("- 候选人：" + (d.candidate_name || "—"));
+  L.push("- 综合匹配度：**" + d.match_score + " / 100**（" + (d.score_level || "") + "）");
+  L.push("- 分析引擎：" + (d.source === "llm" ? "AI大模型" : "离线规则引擎"));
+  L.push("");
+  L.push("## 各维度得分");
+  (d.dimensions || []).forEach(function(x){
+    L.push("- " + x.name + "：" + x.score + "/" + x.max + (x.detail ? "（" + x.detail + "）" : ""));
+  });
+  L.push("");
+  L.push("## 已匹配技能");
+  L.push((d.matched_skills || []).join("、") || "无");
+  L.push("");
+  L.push("## 缺失技能");
+  L.push((d.missing_skills || []).join("、") || "无");
+  L.push("");
+  L.push("## 优化建议");
+  (d.suggestions || []).forEach(function(s, i){
+    L.push((i + 1) + ". **【" + s.category + "｜" + s.priority + "优先级】**");
+    if (s.issue)  L.push("   - 问题：" + s.issue);
+    if (s.action) L.push("   - 建议：" + s.action);
+    if (s.impact) L.push("   - 效果：" + s.impact);
+  });
+  L.push("");
+  L.push("## 优化后简历");
+  L.push("");
+  L.push(d.optimized_resume || "");
+  return L.join("\n");
+}
+
+$("btnCopy").addEventListener("click", function(){
+  var text = buildMarkdown();
+  if (!text) { toast("暂无结果可复制"); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ toast("✅ 已复制到剪贴板"); });
+  } else {
+    var ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+    toast("✅ 已复制到剪贴板");
+  }
+});
+
+$("btnDownload").addEventListener("click", function(){
+  var text = buildMarkdown();
+  if (!text) { toast("暂无结果可下载"); return; }
+  var blob = new Blob(["﻿" + text], { type: "text/markdown;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "简历优化报告.md";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  toast("⬇️ 已开始下载");
+});
+
+// ================= 设置弹窗 =================
+$("btnSettings").addEventListener("click", function(){
+  $("modalMask").classList.add("show");
+  api("/api/config").then(function(d){
+    if (d.ok) {
+      $("cfgStatus").textContent = d.api_key
+        ? "当前已配置：" + d.provider + " · " + d.model + "（Key: " + d.api_key + "）"
+        : "当前未配置 API Key，运行离线规则引擎模式";
+      $("cfgBaseUrl").value = d.base_url || "";
+      $("cfgModel").value = d.model || "";
+    }
+  });
+});
+$("btnCloseModal").addEventListener("click", function(){ $("modalMask").classList.remove("show"); });
+$("modalMask").addEventListener("click", function(e){ if (e.target === this) this.classList.remove("show"); });
+
+$("btnDetect").addEventListener("click", function(){
+  var key = $("cfgKey").value.trim();
+  if (!key) { toast("请先输入 API Key"); return; }
+  this.disabled = true; this.textContent = "识别中…";
+  api("/api/detect", "POST", { api_key: key }).then(function(d){
+    $("btnDetect").disabled = false; $("btnDetect").textContent = "🔍 自动识别并保存";
+    if (!d.ok) { toast("❌ " + d.error); return; }
+    $("detectProvider").textContent = "✅ 识别成功：" + d.provider;
+    var sel = $("modelSelect"); sel.innerHTML = "";
+    (d.models || []).forEach(function(m){
+      var op = document.createElement("option"); op.value = m; op.textContent = m; sel.appendChild(op);
+    });
+    if (!d.models || !d.models.length) {
+      var op = document.createElement("option"); op.value = ""; op.textContent = "（未获取到模型列表，请在高级设置手动填写）"; sel.appendChild(op);
+    }
+    $("detectResult").classList.add("show");
+    // 自动保存
+    var model = sel.value;
+    api("/api/config", "POST", { api_key: key, provider: d.provider, base_url: d.base_url, model: model }).then(function(r){
+      if (r.ok) {
+        toast("✅ 已保存：" + d.provider + " · " + model);
+        $("cfgStatus").textContent = "当前已配置：" + d.provider + " · " + model + "（Key: " + r.api_key + "）";
+        refreshStatus();
+      }
+    });
+    // 切换模型时同步保存
+    sel.onchange = function(){
+      api("/api/config", "POST", { api_key: key, provider: d.provider, base_url: d.base_url, model: sel.value }).then(function(r){
+        if (r.ok) { toast("已切换模型：" + sel.value); refreshStatus(); }
+      });
+    };
+  }).catch(function(){
+    $("btnDetect").disabled = false; $("btnDetect").textContent = "🔍 自动识别并保存";
+    toast("❌ 识别请求失败");
+  });
+});
+
+$("btnTest").addEventListener("click", function(){
+  var tr = $("testResult");
+  tr.className = "test-result show"; tr.textContent = "测试中…";
+  api("/api/test", "POST", {}).then(function(d){
+    if (d.ok) {
+      tr.className = "test-result show test-ok";
+      tr.textContent = "✅ 连接可用，延迟 " + d.latency_ms + "ms，模型回复：" + d.reply;
+    } else {
+      tr.className = "test-result show test-fail";
+      tr.textContent = "❌ " + d.error;
+    }
+  }).catch(function(){
+    tr.className = "test-result show test-fail"; tr.textContent = "❌ 测试请求失败";
+  });
+});
+
+$("btnSaveManual").addEventListener("click", function(){
+  var key = $("cfgKey").value.trim();
+  var baseUrl = $("cfgBaseUrl").value.trim();
+  var model = $("cfgModel").value.trim();
+  if (!key || !baseUrl || !model) { toast("Key、接口地址、模型名均需填写"); return; }
+  api("/api/config", "POST", { api_key: key, provider: "自定义", base_url: baseUrl, model: model }).then(function(d){
+    if (d.ok) { toast("✅ 配置已保存"); refreshStatus(); }
+    else { toast("❌ " + d.error); }
+  });
+});
+
+$("btnClear").addEventListener("click", function(){
+  if (!confirm("确定清除已保存的 API 配置吗？将恢复为离线规则引擎模式。")) return;
+  api("/api/config", "POST", { action: "clear" }).then(function(d){
+    if (d.ok) {
+      $("cfgKey").value = ""; $("detectResult").classList.remove("show");
+      $("testResult").classList.remove("show");
+      $("cfgStatus").textContent = "当前未配置 API Key，运行离线规则引擎模式";
+      toast("✅ 已清除配置"); refreshStatus();
+    }
+  });
+});
+
+// 初始化
+refreshStatus();
+</script>
+</body>
+</html>

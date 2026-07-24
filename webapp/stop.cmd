@@ -1,0 +1,1 @@
+﻿@echo off\nchcp 65001 >nul\npython "%~dp0stop.py"\n

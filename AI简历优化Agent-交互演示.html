@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI简历优化Agent - 交互演示</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#6366f1;--primary-light:#a5b4fc;--bg:#f8f9fc;--card:#fff;--text:#1e293b;--text-light:#64748b;--border:#e2e8f0;--success:#10b981;--warning:#f59e0b;--danger:#ef4444}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.container{max-width:960px;margin:0 auto;padding:20px}
+header{text-align:center;padding:40px 0 30px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);color:#fff;border-radius:0 0 32px 32px;margin-bottom:30px}
+header h1{font-size:28px;font-weight:700;margin-bottom:8px}
+header p{font-size:15px;opacity:.85}
+.workflow{display:flex;justify-content:center;gap:12px;margin:24px 0;flex-wrap:wrap}
+.workflow-step{background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border-radius:12px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:6px}
+.workflow-step .num{background:#fff;color:var(--primary);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.card{background:var(--card);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid var(--border)}
+.card h2{font-size:18px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card h2 .icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.btn-group{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.btn{padding:8px 16px;border-radius:8px;border:2px solid var(--border);background:#fff;cursor:pointer;font-size:13px;transition:all .2s;font-family:inherit}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);font-weight:600;padding:12px 32px;font-size:15px;border-radius:12px}
+.btn-primary:hover{background:#4f46e5;transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.3)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+textarea{width:100%;min-height:180px;border:2px solid var(--border);border-radius:12px;padding:16px;font-size:14px;font-family:inherit;resize:vertical;transition:border-color .2s;line-height:1.6}
+textarea:focus{outline:none;border-color:var(--primary)}
+.result-section{display:none}
+.result-section.show{display:block;animation:fadeIn .5s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.score-container{text-align:center;padding:30px;margin-bottom:20px}
+.score-circle{width:120px;height:120px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:#fff;position:relative}
+.score-circle::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:3px dashed;opacity:.3;animation:spin 20s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.score-low{background:linear-gradient(135deg,#f59e0b,#ef4444)}.score-low::after{border-color:#ef4444}
+.score-high{background:linear-gradient(135deg,#10b981,#059669)}.score-high::after{border-color:#10b981}
+.score-label{font-size:14px;color:var(--text-light)}
+.tag{display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;margin:3px;font-weight:500}
+.tag-match{background:#dcfce7;color:#166534}
+.tag-missing{background:#fef3c7;color:#92400e}
+.tag-extra{background:#fee2e2;color:#991b1b}
+.comparison{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.comparison-col{padding:16px;border-radius:12px;font-size:13px;line-height:1.8}
+.comparison-col.before{background:#fef2f2;border:1px solid #fecaca}
+.comparison-col.after{background:#f0fdf4;border:1px solid #bbf7d0}
+.comparison-col h4{margin-bottom:8px;font-size:14px}
+.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+.stat-row:last-child{border:none}
+.stat-val{font-weight:700}
+.stat-up{color:var(--success)}
+.stat-down{color:var(--danger)}
+.suggestion{background:#f8fafc;border-left:3px solid var(--primary);padding:12px 16px;margin:10px 0;border-radius:0 8px 8px 0;font-size:13px}
+.suggestion strong{color:var(--primary)}
+.loading{display:none;text-align:center;padding:40px}
+.loading.show{display:block}
+.loading-dots{display:inline-flex;gap:6px}
+.loading-dots span{width:10px;height:10px;border-radius:50%;background:var(--primary);animation:bounce .6s infinite alternate}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{to{opacity:.3;transform:translateY(-8px)}}
+footer{text-align:center;padding:30px;color:var(--text-light);font-size:13px}
+@media(max-width:640px){.comparison{grid-template-columns:1fr}header h1{font-size:22px}.workflow{flex-direction:column;align-items:center}}
+.optimized-resume{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:13px;line-height:1.9}
+.optimized-resume h3{font-size:16px;margin-bottom:12px;color:var(--primary)}
+.optimized-resume .section-title{font-weight:700;margin-top:16px;padding-bottom:4px;border-bottom:2px solid var(--primary-light);color:var(--primary);margin-bottom:8px}
+.optimized-resume ul{padding-left:20px}
+.optimized-resume li{margin:4px 0}
+.highlight{background:linear-gradient(120deg,#dbeafe 0%,#dbeafe 100%);padding:1px 4px;border-radius:3px}
+.tab-bar{display:flex;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text-light);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab.active{color:var(--primary);border-color:var(--primary)}
+.tab-content{display:none}.tab-content.active{display:block}
+</style>
+</head>
+<body>
+
+<header>
+<h1>AI 简历优化 Agent</h1>
+<p>输入JD + 简历 → 自动解析 → 智能优化 → 匹配度评分</p>
+<div class="workflow">
+<div class="workflow-step"><span class="num">1</span> JD解析</div>
+<div class="workflow-step"><span class="num">2</span> 简历解析</div>
+<div class="workflow-step"><span class="num">3</span> 匹配分析</div>
+<div class="workflow-step"><span class="num">4</span> 智能优化</div>
+<div class="workflow-step"><span class="num">5</span> 输出报告</div>
+</div>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h2><span class="icon" style="background:#eef2ff">📋</span> 输入岗位JD</h2>
+<div class="btn-group">
+<button class="btn active" onclick="loadJD(0)">AI产品经理</button>
+<button class="btn" onclick="loadJD(1)">前端开发工程师</button>
+<button class="btn" onclick="loadJD(2)">数据分析师</button>
+</div>
+<textarea id="jdInput" placeholder="粘贴目标岗位的JD描述..."></textarea>
+</div>
+
+<div class="card">
+<h2><span class="icon" style="background:#fef3c7">👤</span> 输入原始简历</h2>
+<div class="btn-group">
+<button class="btn active" onclick="loadResume(0)">3年经验·产品经理</button>
+<button class="btn" onclick="loadResume(1)">应届生·前端方向</button>
+</div>
+<textarea id="resumeInput" placeholder="粘贴你的简历内容..."></textarea>
+</div>
+
+<div style="text-align:center;margin:20px 0">
+<button class="btn-primary" onclick="runAnalysis()" id="analyzeBtn">🚀 开始分析优化</button>
+</div>
+
+<div class="loading" id="loading">
+<p style="margin-bottom:16px;font-size:15px;color:var(--text-light)">AI正在分析中...</p>
+<div class="loading-dots"><span></span><span></span><span></span></div>
+<p style="margin-top:16px;font-size:12px;color:var(--text-light)">JD关键词提取 → 简历解析 → 匹配度计算 → 智能优化</p>
+</div>
+
+<div class="result-section" id="results">
+
+<div class="card">
+<div class="tab-bar">
+<div class="tab active" onclick="switchTab('score')">匹配度评分</div>
+<div class="tab" onclick="switchTab('optimized')">优化后简历</div>
+<div class="tab" onclick="switchTab('compare')">优化对比</div>
+<div class="tab" onclick="switchTab('advice')">优化建议</div>
+</div>
+
+<div class="tab-content active" id="tab-score">
+<div class="score-container">
+<div class="score-circle score-low" id="scoreBefore">45</div>
+<p class="score-label">优化前匹配度</p>
+</div>
+<div style="text-align:center;font-size:32px;margin:8px 0">→</div>
+<div class="score-container">
+<div class="score-circle score-high" id="scoreAfter">72</div>
+<p class="score-label">优化后匹配度</p>
+</div>
+<div style="margin-top:20px">
+<h4 style="margin-bottom:12px">关键词覆盖分析</h4>
+<div id="keywordAnalysis"></div>
+</div>
+</div>
+
+<div class="tab-content" id="tab-optimized">
+<div class="optimized-resume" id="optimizedResume"></div>
+</div>
+
+<div class="tab-content" id="tab-compare">
+<h4 style="margin-bottom:12px">📊 优化效果数据</h4>
+<div id="statsComparison"></div>
+<div class="comparison" style="margin-top:20px">
+<div class="comparison-col before">
+<h4>❌ 优化前（部分摘录）</h4>
+<div id="beforeText"></div>
+</div>
+<div class="comparison-col after">
+<h4>✅ 优化后（对应部分）</h4>
+<div id="afterText"></div>
+</div>
+</div>
+</div>
+
+<div class="tab-content" id="tab-advice">
+<div id="suggestions"></div>
+</div>
+</div>
+</div>
+</div>
+
+<footer>
+<p>AI 简历优化 Agent v1.0 · 基于大语言模型 + 提示词工程 + JD智能解析</p>
+<p style="margin-top:6px">本演示为预置数据展示 · 实际部署接入LLM API后可处理任意JD与简历</p>
+</footer>
+</div>
+
+<script>
+const jdData = [
+`【岗位名称】AI产品经理
+【公司】某头部互联网公司
+【岗位职责】
+1. 负责AI产品（大模型/AIGC方向）的整体规划与设计，制定产品Roadmap
+2. 深入理解用户需求，通过数据分析驱动产品迭代优化
+3. 与算法、工程团队紧密协作，推动AI能力落地到具体产品功能
+4. 竞品分析，跟踪行业动态，制定差异化竞争策略
+5. 负责产品全生命周期管理，包括需求分析、方案设计、上线运营
+
+【任职要求】
+1. 本科及以上学历，3年以上互联网产品经理经验
+2. 有AI/大模型/AIGC产品经验优先
+3. 优秀的数据分析能力，熟练使用SQL、Python等工具
+4. 出色的跨团队沟通协调能力和项目管理能力
+5. 对AI技术有深刻理解，能将技术能力转化为用户价值`,
+
+`【岗位名称】前端开发工程师
+【公司】某知名科技公司
+【岗位职责】
+1. 负责公司核心产品的前端架构设计与开发
+2. 使用React/Vue等主流框架构建高性能Web应用
+3. 优化前端性能，提升用户体验和页面加载速度
+4. 与设计师、后端工程师协作，确保产品高质量交付
+5. 参与前端技术选型和团队代码规范制定
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业
+2. 3年以上前端开发经验
+3. 精通HTML/CSS/JavaScript，熟悉ES6+规范
+4. 熟练使用React或Vue框架，有大型项目经验
+5. 了解Node.js，有全栈开发经验优先`,
+
+`【岗位名称】数据分析师
+【公司】某互联网大厂
+【岗位职责】
+1. 搭建业务数据分析体系，构建关键指标看板
+2. 通过数据建模和统计分析，为业务决策提供支持
+3. 设计A/B测试方案，评估产品迭代效果
+4. 挖掘用户行为数据，发现增长机会点
+5. 定期产出数据分析报告，向管理层汇报
+
+【任职要求】
+1. 本科及以上学历，统计/数学/计算机等相关专业
+2. 2年以上数据分析经验
+3. 精通SQL、Python（Pandas/NumPy）、Excel
+4. 熟悉数据可视化工具（Tableau/PowerBI）
+5. 具备良好的商业理解力和沟通表达能力`
+];
+
+const resumeData = [
+`李建鹏 | 产品经理 | 3年经验
+电话：15147422842 | 邮箱：1928937943@qq.com
+
+【工作经历】
+XX科技有限公司 | 产品经理 | 2023.06-至今
+- 负责B端SaaS产品管理后台的需求分析和原型设计
+- 参与产品功能上线，跟进开发进度
+- 撰写PRD文档，组织需求评审会议
+- 收集用户反馈，提出优化建议
+
+【教育背景】
+XX大学 | 信息管理与信息系统 | 本科 | 2019-2023
+
+【技能】
+- 熟练使用Axure、Figma进行原型设计
+- 熟悉SQL基础查询
+- 了解Python基础
+- 良好的文档撰写能力`,
+
+`王小明 | 前端开发 | 应届生
+电话：13800138000 | 邮箱：xiaoming@example.com
+
+【实习经历】
+XX互联网公司 | 前端实习 | 2025.07-2025.12
+- 参与公司官网改版，使用Vue.js开发多个页面组件
+- 修复线上bug，优化页面加载速度
+- 配合后端完成接口联调
+
+【教育背景】
+XX大学 | 软件工程 | 本科 | 2021-2025
+
+【项目经历】
+个人博客网站 - 使用React搭建
+- 实现了文章列表、详情页、标签分类功能
+- 使用Webpack打包部署
+
+【技能】
+- HTML/CSS/JavaScript
+- Vue.js基础
+- 了解React`
+];
+
+const analysisResults = [
+{
+  scoreBefore: 45,
+  scoreAfter: 72,
+  keywordsMatch: ['产品经理', '需求分析', '数据分析', '原型设计', 'PRD', 'SQL', '跨团队协作', '产品迭代', '用户反馈', '项目跟进', '沟通协调'],
+  keywordsMissing: ['AI/大模型经验', 'Python数据分析', 'Roadmap规划', '竞品分析', 'AIGC'],
+  optimized: `<h3>李建鹏 | AI产品经理方向</h3>
+<p>📱 15147422842 · ✉️ 1928937943@qq.com</p>
+
+<div class="section-title">🎯 个人优势</div>
+<p>3年B端SaaS产品经验，具备<span class="highlight">AI产品落地能力</span>。主导管理后台从0到1建设，<span class="highlight">数据驱动产品迭代</span>，用户满意度提升35%。熟悉大模型/AIGC产品趋势，能快速将技术能力转化为用户价值。</p>
+
+<div class="section-title">💼 工作经历</div>
+<p><strong>XX科技有限公司 | 产品经理 | 2023.06-至今</strong></p>
+<ul>
+<li>独立负责B端SaaS管理后台<span class="highlight">产品规划与Roadmap制定</span>，3个月内完成V1.0→V2.0迭代，覆盖5大核心模块</li>
+<li>通过<span class="highlight">数据分析</span>驱动需求优先级排序，建立用户反馈闭环机制，需求命中率从40%提升至78%</li>
+<li>主导<span class="highlight">跨团队协作</span>，协调算法、工程、设计3个团队共12人，保障项目按期交付率95%+</li>
+<li>搭建<span class="highlight">竞品分析</span>体系，定期追踪8家竞品动态，产出竞品分析报告12篇，推动3项差异化功能上线</li>
+<li>利用<span class="highlight">SQL</span>进行用户行为数据分析，发现核心流失节点，优化后注册转化率提升22%</li>
+<li>主动探索<span class="highlight">AI能力</span>在产品中的应用，推动智能推荐模块立项，预计提升用户留存15%</li>
+</ul>
+
+<div class="section-title">🛠 核心技能</div>
+<ul>
+<li><strong>产品能力：</strong>需求分析 · 原型设计（Axure/Figma） · PRD撰写 · Roadmap规划 · 竞品分析</li>
+<li><strong>数据能力：</span>SQL（熟练） · Python数据分析（Pandas） · 数据看板搭建 · A/B测试设计</li>
+<li><strong>AI理解：</strong>大模型应用认知 · AIGC产品趋势 · Prompt Engineering基础 · AI能力产品化</li>
+<li><strong>软技能：</strong>跨团队沟通协调 · 项目管理 · 用户研究 · 数据驱动决策</li>
+</ul>
+
+<div class="section-title">🎓 教育背景</div>
+<p>XX大学 | 信息管理与信息系统 | 本科 | 2019-2023</p>`,
+  suggestions: [
+    {title:'补充AI产品经验', desc:'JD明确要求AI/大模型/AIGC经验。建议在简历中突出：①对大模型产品的理解和实践（哪怕个人项目）②关注AIGC行业动态的证据（如运营个人公众号分析AI产品）③任何与AI相关的功能设计经验'},
+    {title:'量化所有工作成果', desc:'原始简历几乎没有数据。优化后为每段经历添加了具体数字（35%、95%+、22%等）。建议回忆真实工作中的数据指标，用STAR法则重写每一条经历。'},
+    {title:'强化数据分析能力', desc:'JD要求"熟练使用SQL、Python"。原简历仅写"熟悉SQL基础"，远远不够。建议补充：①具体的数据分析案例 ②使用过的分析工具和方法 ③分析结果如何影响产品决策'},
+    {title:'增加竞品分析和Roadmap经验', desc:'这两个能力在JD中明确提及但原简历完全缺失。即使没有正式做过，也可以补充：参与过哪些竞品调研、如何制定季度功能计划等'}
+  ],
+  stats: [
+    {label:'JD关键词覆盖', before:'5/16', after:'11/16', up:true},
+    {label:'量化成就数量', before:'0条', after:'8条', up:true},
+    {label:'工作经历条目', before:'4条(泛)', after:'6条(精准)', up:true},
+    {label:'技能匹配度', before:'30%', after:'75%', up:true},
+    {label:'匹配度评分', before:'45分', after:'72分', up:true}
+  ],
+  beforeExcerpt:'- 负责B端SaaS产品管理后台的需求分析和原型设计\n- 参与产品功能上线，跟进开发进度\n- 撰写PRD文档，组织需求评审会议\n- 收集用户反馈，提出优化建议',
+  afterExcerpt:'- 独立负责B端SaaS管理后台产品规划与Roadmap制定，3个月内完成V1.0→V2.0迭代\n- 通过数据分析驱动需求优先级排序，需求命中率从40%提升至78%\n- 主导跨团队协作，协调3个团队12人，保障按期交付率95%+\n- 利用SQL进行用户行为数据分析，注册转化率提升22%'
+}
+];
+
+let currentJD = 0, currentResume = 0;
+
+function loadJD(idx){
+  currentJD = idx;
+  document.getElementById('jdInput').value = jdData[idx];
+  document.querySelectorAll('.card:first-of-type .btn-group .btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  document.getElementById('results').classList.remove('show');
+}
+function loadResume(idx){
+  currentResume = idx;
+  document.getElementById('resumeInput').value = resumeData[idx];
+  document.querySelectorAll('.card:nth-of-type(2) .btn-group .btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  document.getElementById('results').classList.remove('show');
+}
+
+function runAnalysis(){
+  if(!document.getElementById('jdInput').value.trim()||!document.getElementById('resumeInput').value.trim()){
+    alert('请先输入JD和简历内容（可点击示例按钮快速填入）');return;
+  }
+  const loading=document.getElementById('loading');
+  const results=document.getElementById('results');
+  results.classList.remove('show');
+  loading.classList.add('show');
+  document.getElementById('analyzeBtn').disabled=true;
+
+  setTimeout(()=>{
+    loading.classList.remove('show');
+    const d=analysisResults[0];
+    renderResults(d);
+    results.classList.add('show');
+    document.getElementById('analyzeBtn').disabled=false;
+    results.scrollIntoView({behavior:'smooth'});
+  },2200);
+}
+
+function renderResults(d){
+  // Score
+  document.getElementById('scoreBefore').textContent=d.scoreBefore;
+  document.getElementById('scoreAfter').textContent=d.scoreAfter;
+
+  // Keywords
+  let kwHTML='<div style="margin-bottom:8px"><strong>✅ 已匹配：</strong><br>';
+  d.keywordsMatch.forEach(k=>{kwHTML+=`<span class="tag tag-match">${k}</span>`;});
+  kwHTML+='</div><div><strong>⚠️ 缺失：</strong><br>';
+  d.keywordsMissing.forEach(k=>{kwHTML+=`<span class="tag tag-missing">${k}</span>`;});
+  kwHTML+='</div>';
+  document.getElementById('keywordAnalysis').innerHTML=kwHTML;
+
+  // Optimized resume
+  document.getElementById('optimizedResume').innerHTML=d.optimized;
+
+  // Stats comparison
+  let statsHTML='';
+  d.stats.forEach(s=>{
+    statsHTML+=`<div class="stat-row"><span>${s.label}</span><span><span class="stat-val">${s.before}</span> → <span class="stat-val stat-up">${s.after}</span></span></div>`;
+  });
+  document.getElementById('statsComparison').innerHTML=statsHTML;
+
+  // Before/After
+  document.getElementById('beforeText').innerHTML='<pre style="white-space:pre-wrap;font-family:inherit;font-size:13px">'+d.beforeExcerpt+'</pre>';
+  document.getElementById('afterText').innerHTML='<pre style="white-space:pre-wrap;font-family:inherit;font-size:13px">'+d.afterExcerpt+'</pre>';
+
+  // Suggestions
+  let sugHTML='';
+  d.suggestions.forEach((s,i)=>{
+    sugHTML+=`<div class="suggestion"><strong>建议${i+1}：${s.title}</strong><br>${s.desc}</div>`;
+  });
+  document.getElementById('suggestions').innerHTML=sugHTML;
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// Init
+loadJD(0);
+loadResume(0);
+</script>
+</body>
+</html>
